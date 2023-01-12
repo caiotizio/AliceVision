@@ -208,21 +208,21 @@ __global__ void volume_refine_kernel(cudaTextureObject_t rcTex,
     const int x = (roi.x.begin + vx) * stepXY;
     const int y = (roi.y.begin + vy) * stepXY;
 
-    // corresponding original plane depth
-    const float originalDepth = get2DBufferAt(in_sgmDepthPixSizeMap_d, in_sgmDepthPixSizeMap_p, vx, vy)->x; // input original middle depth
+    // corresponding sgm depth/pixSize
+    const float2 middleDepthPixSize = *get2DBufferAt(in_sgmDepthPixSizeMap_d, in_sgmDepthPixSizeMap_p, vx, vy); // input middle depth/pixSize
 
-    // original depth invalid or masked, similarity value remain at 255
-    if(originalDepth <= 0.0f)
+    // middle depth invalid or masked, similarity value remain at 255
+    if(middleDepthPixSize.x <= 0.0f)
         return; 
 
     // get rc 3d point at original depth (z center)
-    float3 p = get3DPointForPixelAndDepthFromRC(rcDeviceCamId, make_int2(x, y), originalDepth);
+    float3 p = get3DPointForPixelAndDepthFromRC(rcDeviceCamId, make_int2(x, y), middleDepthPixSize.x);
 
     // move rc 3d point according to the relative depth
     const int relativeDepthIndexOffset = vz - ((volDimZ - 1) / 2);
     if(relativeDepthIndexOffset != 0)
     {
-        const float pixSizeOffset = relativeDepthIndexOffset * computePixSize(rcDeviceCamId, p);
+        const float pixSizeOffset = relativeDepthIndexOffset * middleDepthPixSize.y;
         move3DPointByRcPixSize(rcDeviceCamId, p, pixSizeOffset);
     }
 
