@@ -159,6 +159,19 @@ void Sgm::sgmRc(const Tile& tile, const SgmDepthList& tileDepthList)
         writeDepthSimMap(tile.rc, _mp, _tileParams, tile.roi, _depthSimMap_dmp, _sgmParams.scale, _sgmParams.stepXY, "_sgm");
     }
 
+    // compute pixSize map from depth/sim map
+    {
+        // downscale the region of interest
+        const ROI downscaledRoi = downscaleROI(tile.roi, _sgmParams.scale * _sgmParams.stepXY);
+
+        // get R device camera from cache
+        DeviceCache& deviceCache = DeviceCache::getInstance();
+        const DeviceCamera& rcDeviceCamera = deviceCache.requestCamera(tile.rc, _sgmParams.scale, _mp);
+
+        ALICEVISION_LOG_INFO(tile << "SGM pixSize map of view id: " << viewId << ", rc: " << tile.rc << " (" << (tile.rc + 1) << " / " << _mp.ncams << ").");
+        cuda_depthSimMapComputeSmoothPixSize(_depthSimMap_dmp, rcDeviceCamera, _sgmParams, downscaledRoi, _stream);
+    }
+
     // compute normal map from depth/sim map if needed
     if(_sgmParams.computeNormalMap)
     {

@@ -89,6 +89,26 @@ __host__ void cuda_depthSimMapUpscaleAndFilter(CudaDeviceMemoryPitched<float2, 2
     CHECK_CUDA_ERROR();
 }
 
+__host__ void cuda_depthSimMapComputeSmoothPixSize(CudaDeviceMemoryPitched<float2, 2>& inout_sgmDepthPixSizeMap_dmp,
+                                                   const DeviceCamera& rcDeviceCamera, 
+                                                   const SgmParams& sgmParams,
+                                                   const ROI& roi, 
+                                                   cudaStream_t stream)
+{
+    const int blockSize = 16;
+    const dim3 block(blockSize, blockSize, 1);
+    const dim3 grid(divUp(roi.width(), blockSize), divUp(roi.height(), blockSize), 1);
+
+    depthSimMapComputeSmoothPixSize_kernel<<<grid, block, 0, stream>>>(
+      rcDeviceCamera.getDeviceCamId(), 
+      inout_sgmDepthPixSizeMap_dmp.getBuffer(), 
+      inout_sgmDepthPixSizeMap_dmp.getPitch(),
+      sgmParams.stepXY,
+      roi);
+
+    CHECK_CUDA_ERROR();
+}
+
 __host__ void cuda_depthSimMapComputePixSize(CudaDeviceMemoryPitched<float2, 2>& inout_depthPixSizeMap_dmp,
                                              const DeviceCamera& rcDeviceCamera,
                                              const RefineParams& refineParams,

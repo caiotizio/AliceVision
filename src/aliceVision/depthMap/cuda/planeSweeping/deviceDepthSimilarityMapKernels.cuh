@@ -159,7 +159,7 @@ __global__ void depthSimMapUpscaleAndFilter_kernel(cudaTextureObject_t rcTex,
     // filter masked pixels (alpha < 0.9f)
     if(tex2D_float4(rcTex, roi.x.begin + x + 0.5f, roi.y.begin + y + 0.5f).w < 0.9f)
     {
-        *get2DBufferAt(out_upscaledDeptSimMap_d, out_upscaledDeptSimMap_p, x, y) = make_float2(-2.f, 1.f);
+        *get2DBufferAt(out_upscaledDeptSimMap_d, out_upscaledDeptSimMap_p, x, y) = make_float2(-2.f, 0.f);
         return;
     }
 
@@ -222,7 +222,7 @@ __global__ void depthSimMapUpscaleAndFilter_kernel(cudaTextureObject_t rcTex,
         }
         else
         {
-            out_depthSim = {-1.0f, 1.0f};
+            out_depthSim = {-1.0f, 0.0f};
             return;
         }
     }
@@ -237,6 +237,95 @@ __global__ void depthSimMapUpscaleAndFilter_kernel(cudaTextureObject_t rcTex,
 
     // write output
     *get2DBufferAt(out_upscaledDeptSimMap_d, out_upscaledDeptSimMap_p, x, y) = out_depthSim;
+}
+
+__global__ void depthSimMapComputeSmoothPixSize_kernel(int rcDeviceCamId, float2* inout_sgmDepthPixSizeMap_d, int inout_sgmDepthPixSizeMap_p, int stepXY, const ROI roi)
+{
+    const int roiX = blockIdx.x * blockDim.x + threadIdx.x;
+    const int roiY = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if(roiX >= roi.width() || roiY >= roi.height()) 
+        return;
+
+    // corresponding device image coordinates
+    const int x = (roi.x.begin + roiX) * stepXY;
+    const int y = (roi.y.begin + roiY) * stepXY;
+
+    // corresponding output pixSize
+    float2* out_depthPixSize = get2DBufferAt(inout_sgmDepthPixSizeMap_d, inout_sgmDepthPixSizeMap_p, roiX, roiY);
+
+    // depth invalid or masked, pixSize set to 0
+    if(get2DBufferAt(inout_sgmDepthPixSizeMap_d, inout_sgmDepthPixSizeMap_p, roiX, roiY)->x < 0.0f)
+    {
+        out_depthPixSize->y = 0;
+        return;
+    }
+
+    float pixSize[9];
+    float pixSizeToSort[9];
+    int pixSizeIndexSorted[9];
+
+    int nbValidPixSize = 0;
+    int i = 0;
+
+    for(int yp = -1; yp <= 1; yp++)
+    {
+        for(int xp = -1; xp <= 1; xp++)
+        {
+            const int roiXp = roiX + xp;
+            const int roiYp = roiY + yp;
+
+            if(roiXp < 0 || roiXp >= roi.width() || roiYp < 0 || roiYp >= roi.height())
+            {
+                pixSize[i] = -1.f;
+                pixSizeToSort[i] = -1.f;
+            }
+            else
+            {
+                const float2 in_depthSim = *get2DBufferAt(inout_sgmDepthPixSizeMap_d, inout_sgmDepthPixSizeMap_p, roiX + xp, roiY + yp);
+
+                if(in_depthSim.x < 0.0f)
+                {
+                    pixSize[i] = -1.f;
+                    pixSizeToSort[i] = -1.f;
+                }
+                else
+                {
+                    const float3 p = get3DPointForPixelAndDepthFromRC(rcDeviceCamId, make_int2(x, y), in_depthSim.x);
+                    const float pPixSize = computePixSize(rcDeviceCamId, p);
+                    pixSize[i] = pPixSize;
+                    pixSizeToSort[i] = pPixSize;
+                    ++nbValidPixSize;
+                }
+            }
+            ++i;
+        }
+    }
+
+    for(int i = 0; i < nbValidPixSize; ++i)
+    {
+        float maxPixSize = -1.f;
+
+        for(int j = 0; j < 9; ++j)
+        {
+            if(pixSizeToSort[j] > maxPixSize)
+            {
+                pixSizeIndexSorted[i] = j;
+                maxPixSize = pixSizeToSort[j];
+            }
+        }
+
+        pixSizeToSort[pixSizeIndexSorted[i]] = -1.f;
+    }
+
+    if(nbValidPixSize <= 0)
+    {
+        out_depthPixSize->y = 0;
+    }
+    else
+    {
+        out_depthPixSize->y = pixSize[pixSizeIndexSorted[nbValidPixSize / 2]];
+    }
 }
 
 __global__ void depthSimMapComputePixSize_kernel(int rcDeviceCamId, float2* inout_deptPixSizeMap_d, int inout_deptPixSizeMap_p, int stepXY, const ROI roi)
