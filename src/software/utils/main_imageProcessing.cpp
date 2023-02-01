@@ -580,6 +580,10 @@ int aliceVision_main(int argc, char * argv[])
     image::ERawColorInterpretation rawColorInterpretation = image::ERawColorInterpretation::LibRawNoWhiteBalancing;
     std::string colorProfileDatabaseDirPath = "";
     bool errorOnMissingColorProfile = true;
+    bool useDCPColorMatrixOnly = false;
+    bool doWBAfterDemosaicing = false;
+    std::string demosaicingAlgo = "AHD";
+    int highlightMode = 0;
 
     ProcessingParams pParams;
 
@@ -672,10 +676,22 @@ int aliceVision_main(int argc, char * argv[])
             ("RAW color interpretation: " + image::ERawColorInterpretation_informations() + "\ndefault : librawnowhitebalancing").c_str())
 
         ("colorProfileDatabase,c", po::value<std::string>(&colorProfileDatabaseDirPath)->default_value(""),
-            "DNG Color Profiles (DCP) database path.")
+         "DNG Color Profiles (DCP) database path.")
 
         ("errorOnMissingColorProfile", po::value<bool>(&errorOnMissingColorProfile)->default_value(errorOnMissingColorProfile),
-            "Rise an error if a DCP color profiles database is specified but no DCP file matches with the camera model (maker+name) extracted from metadata (Only for raw images)")
+         "Rise an error if a DCP color profiles database is specified but no DCP file matches with the camera model (maker+name) extracted from metadata (Only for raw images)")
+
+        ("useDCPColorMatrixOnly", po::value<bool>(&useDCPColorMatrixOnly)->default_value(useDCPColorMatrixOnly),
+         "Use only Color matrices of DCP profile, ignoring Forward matrices if any.")
+
+        ("doWBAfterDemosaicing", po::value<bool>(&doWBAfterDemosaicing)->default_value(doWBAfterDemosaicing),
+         "Do not use libRaw white balancing. White balance applied just before DCP profile")
+
+        ("demosaicingAlgo", po::value<std::string>(&demosaicingAlgo)->default_value(demosaicingAlgo),
+         "Demosaicing algorithm (see libRaw documentation).")
+
+        ("highlightMode", po::value<int>(&highlightMode)->default_value(highlightMode),
+         "Highlight management (see libRaw documentation).")
 
         ("storageDataType", po::value<image::EStorageDataType>(&storageDataType)->default_value(storageDataType),
          ("Storage data type: " + image::EStorageDataType_informations()).c_str())
@@ -797,6 +813,10 @@ int aliceVision_main(int argc, char * argv[])
                 options.rawColorInterpretation = rawColorInterpretation;
             }
             options.colorProfileFileName = view.getColorProfileFileName();
+            options.useDCPColorMatrixOnly = useDCPColorMatrixOnly;
+            options.doWBAfterDemosaicing = doWBAfterDemosaicing;
+            options.demosaicingAlgo = demosaicingAlgo;
+            options.highlightMode = highlightMode;
 
             // Read original image
             image::Image<image::RGBAfColor> image;
@@ -979,6 +999,10 @@ int aliceVision_main(int argc, char * argv[])
                 readOptions.rawColorInterpretation = rawColorInterpretation;
             }
             readOptions.workingColorSpace = workingColorSpace;
+            readOptions.useDCPColorMatrixOnly = useDCPColorMatrixOnly;
+            readOptions.doWBAfterDemosaicing = doWBAfterDemosaicing;
+            readOptions.demosaicingAlgo = demosaicingAlgo;
+            readOptions.highlightMode = highlightMode;
 
             // Read original image
             image::Image<image::RGBAfColor> image;

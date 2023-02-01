@@ -186,7 +186,7 @@ public:
      * param[in] neutral The neutral value calculated from the camera multiplicators contained in the cam_mul OIIO metadata
      * param[in] sourceIsRaw indicates that the image buffer contains data in raw space (no neutralization <=> cam_mul not applied)
      */
-    void applyLinear(OIIO::ImageBuf& image, Triple neutral, const bool sourceIsRaw = false);
+    void applyLinear(OIIO::ImageBuf& image, Triple neutral, const bool sourceIsRaw = false, const bool useColorMatrixOnly = false);
 
     /**
      * @brief apply applies the non linear part of a DCP profile on an OIIO image buffer
@@ -246,7 +246,7 @@ private:
     Matrix getChromaticAdaptationMatrix(const Triple& xyzSource, const Triple& xyzTarget);
     Matrix getCameraToXyzD50Matrix(const double x, const double y);
     Matrix getCameraToSrgbLinearMatrix(const double x, const double y);
-    Matrix getCameraToACES2065Matrix(const Triple& asShotNeutral, const bool sourceIsRaw = false);
+    Matrix getCameraToACES2065Matrix(const Triple& asShotNeutral, const bool sourceIsRaw = false, const bool useColorMatrixOnly = false);
 
     Matrix ws_sRGB; // working color space to sRGB
     Matrix sRGB_ws; // sRGB to working color space
